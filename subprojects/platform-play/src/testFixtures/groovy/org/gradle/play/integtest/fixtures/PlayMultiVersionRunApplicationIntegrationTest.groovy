@@ -17,6 +17,7 @@
 package org.gradle.play.integtest.fixtures
 
 import org.gradle.integtests.fixtures.executer.GradleHandle
+import org.gradle.util.VersionNumber
 
 abstract class PlayMultiVersionRunApplicationIntegrationTest extends PlayMultiVersionApplicationIntegrationTest {
     RunningPlayApp runningApp
@@ -27,7 +28,21 @@ abstract class PlayMultiVersionRunApplicationIntegrationTest extends PlayMultiVe
     }
 
     def startBuild(tasks) {
-        build = executer.withTasks(tasks).withForceInteractive(true).withStdinPipe().start()
+        build = executer.withTasks(tasks).withForceInteractive(true).withStdinPipe().noDeprecationChecks().start()
         runningApp.initialize(build)
+    }
+
+    def patchForPlay26() {
+        if (versionNumber >= VersionNumber.parse('2.6.0')) {
+            buildFile << """ 
+dependencies {
+    play "com.typesafe.play:play-guice_2.12:${version.toString()}"
+}
+"""
+            String routes = file('conf/routes').text
+            // method at in object Assets is deprecated (since 2.6.0): Inject Assets and use Assets#at
+            // https://www.playframework.com/documentation/2.4.x/ScalaRouting#Dependency-Injection
+            file('conf/routes').write(routes.replace('controllers.Assets', '@controllers.Assets'))
+        }
     }
 }
